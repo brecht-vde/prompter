@@ -83,7 +83,7 @@ func (l *Lexer) lexPlain() Token {
 	for {
 		l.lex()
 
-		if l.current == "{" || l.current == "EOF" {
+		if (l.current == "{" && l.peek() == "{") || l.current == "EOF" {
 			l.delex()
 			break
 		}
