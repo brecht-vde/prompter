@@ -1,141 +1,145 @@
 package engine
 
+import (
+	"unicode/utf8"
+)
+
 type Lexer struct {
-	template   string
-	length     int
-	pos        int
-	spos       int
-	current    string
-	isSemantic bool
+	template string
+	length   int
+	current  rune
+	next     rune
+	cpos     int
+	npos     int
+	tpos     int
+	semantic bool
+	eof      bool
+	illegal  bool
 }
 
 func NewLexer(template string) *Lexer {
 	l := &Lexer{
 		template: template,
-		length:   len(template),
-		pos:      1,
-		spos:     0,
-		current:  string(template[0]),
 	}
+
+	l.length = utf8.RuneCountInString(template)
+
+	r, s := utf8.DecodeRuneInString(l.template[l.cpos:])
+
+	l.current = r
+	l.npos = l.cpos + s
+
+	r, _ = utf8.DecodeRuneInString(l.template[l.npos:])
+
+	l.next = r
 
 	return l
 }
 
 func (l *Lexer) NextToken() Token {
-	if l.pos >= l.length {
-		l.spos = l.pos
+	if l.eof || l.illegal {
 		return Token{Type: EOF, Literal: ""}
 	}
 
-	if l.current == "{" && l.peek() == "{" {
+	if l.current == '{' && l.next == '{' {
 		l.lex()
 		l.lex()
-		l.isSemantic = true
-		l.spos = l.pos
+		l.semantic = true
+		l.tpos = l.cpos
 		return Token{Type: DEL_OPEN, Literal: "{{"}
 	}
 
-	if l.current == "}" && l.peek() == "}" {
+	if l.current == '}' && l.next == '}' {
 		l.lex()
 		l.lex()
-		l.isSemantic = false
-		l.spos = l.pos
+		l.semantic = false
+		l.tpos = l.cpos
 		return Token{Type: DEL_CLOSE, Literal: "}}"}
 	}
 
-	if l.isSemantic {
-		tok := l.lexSemantic()
-		l.spos = l.pos
-		return tok
+	if l.semantic {
+		l.skipWhitespace()
+		token := l.lexIdentifier()
+		l.skipWhitespace()
+		return token
 	}
 
-	tok := l.lexPlain()
-	l.spos = l.pos
-	return tok
+	if !l.semantic {
+		return l.lexPlain()
+	}
+
+	l.illegal = true
+	return Token{Type: ILLEGAL, Literal: ""}
 }
 
 func (l *Lexer) lex() {
-	if l.pos < l.length {
-		l.current = string(l.template[l.pos])
-		l.pos += 1
-	} else {
-		l.pos = l.length
-		l.current = "EOF"
-	}
-}
+	l.cpos = l.npos
 
-func (l *Lexer) peek() string {
-	if l.pos < l.length {
-		return string(l.template[l.pos])
-	} else {
-		return "EOF"
-	}
-}
+	r, s := utf8.DecodeRuneInString(l.template[l.cpos:])
 
-func (l *Lexer) delex() {
-	if l.pos != l.length {
-		l.pos -= 1
-		l.current = string(l.template[l.pos])
-	}
-}
+	l.current = r
+	l.npos += s
 
-func (l *Lexer) lexPlain() Token {
-	for {
-		l.lex()
+	r, _ = utf8.DecodeRuneInString(l.template[l.npos:])
 
-		if (l.current == "{" && l.peek() == "{") || l.current == "EOF" {
-			l.delex()
-			break
-		}
-	}
+	l.next = r
 
-	literal := l.template[l.spos:l.pos]
-	return Token{Type: PLAIN, Literal: literal}
-}
-
-func (l *Lexer) lexSemantic() Token {
-	defer l.skipWhitespace()
-	l.skipWhitespace()
-
-	switch {
-	case l.isLetter():
-		return l.lexIdentifier()
-	default:
-		return Token{Type: ILLEGAL, Literal: ""}
+	if l.current == utf8.RuneError {
+		l.eof = true
 	}
 }
 
 func (l *Lexer) skipWhitespace() {
-	for {
+	for l.current == ' ' || l.current == '\t' || l.current == '\n' || l.current == '\r' {
 		l.lex()
-
-		if !l.isWhitespace() {
-			l.delex()
-			l.spos = l.pos
-			break
-		}
 	}
-}
 
-func (l *Lexer) isWhitespace() bool {
-	return l.current == " " || l.current == "\t" || l.current == "\r" || l.current == "\n"
-}
-
-func (l *Lexer) isLetter() bool {
-	ch := l.current[0]
-	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_'
+	l.tpos = l.cpos
 }
 
 func (l *Lexer) lexIdentifier() Token {
-	for {
-		l.lex()
 
-		if l.isWhitespace() || l.current == "}" {
-			l.delex()
+	for {
+		if l.eof {
 			break
 		}
+
+		if l.current == ' ' || l.current == '}' {
+			break
+		}
+
+		l.lex()
 	}
 
-	literal := l.template[l.spos:l.pos]
+	// for !l.eof && l.current != ' ' && l.current != '}' {
+	// 	l.lex()
+	// }
+
+	literal := l.template[l.tpos:l.cpos]
+	l.tpos = l.cpos
+
 	return Token{Type: IDENTIFIER, Literal: literal}
+}
+
+func (l *Lexer) lexPlain() Token {
+	for {
+		if l.eof {
+			break
+		}
+
+		if l.current == '{' && l.next == '{' {
+			break
+		}
+
+		l.lex()
+	}
+
+	if l.current != '{' || l.next != '{' {
+		l.lex()
+	}
+
+	literal := l.template[l.tpos:l.cpos]
+	l.tpos = l.cpos
+
+	return Token{Type: PLAIN, Literal: literal}
 }

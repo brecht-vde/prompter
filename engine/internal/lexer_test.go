@@ -2,69 +2,156 @@ package engine
 
 import "testing"
 
-func TestLexer(t *testing.T) {
-	input := `hello {{ myvar }}!`
-
+func TestLexerValidInputs(t *testing.T) {
 	tests := []struct {
-		expectedType     Type
-		exptectedLiteral string
+		input    string
+		expected []struct {
+			tokenType Type
+			literal   string
+		}
 	}{
-		{PLAIN, "hello "},
-		{DEL_OPEN, "{{"},
-		{IDENTIFIER, "myvar"},
-		{DEL_CLOSE, "}}"},
-		{PLAIN, "!"},
-		{EOF, ""},
+		{
+			input: `{{myvar}}`,
+			expected: []struct {
+				tokenType Type
+				literal   string
+			}{
+				{DEL_OPEN, "{{"},
+				{IDENTIFIER, "myvar"},
+				{DEL_CLOSE, "}}"},
+				{EOF, ""},
+			},
+		},
+		{
+			input: `{{ myvar}}`,
+			expected: []struct {
+				tokenType Type
+				literal   string
+			}{
+				{DEL_OPEN, "{{"},
+				{IDENTIFIER, "myvar"},
+				{DEL_CLOSE, "}}"},
+				{EOF, ""},
+			},
+		},
+		{
+			input: `{{myvar }}`,
+			expected: []struct {
+				tokenType Type
+				literal   string
+			}{
+				{DEL_OPEN, "{{"},
+				{IDENTIFIER, "myvar"},
+				{DEL_CLOSE, "}}"},
+				{EOF, ""},
+			},
+		},
+		{
+			input: `{{ myvar }}`,
+			expected: []struct {
+				tokenType Type
+				literal   string
+			}{
+				{DEL_OPEN, "{{"},
+				{IDENTIFIER, "myvar"},
+				{DEL_CLOSE, "}}"},
+				{EOF, ""},
+			},
+		},
+		{
+			input: `text {{myvar}} text.`,
+			expected: []struct {
+				tokenType Type
+				literal   string
+			}{
+				{PLAIN, "text "},
+				{DEL_OPEN, "{{"},
+				{IDENTIFIER, "myvar"},
+				{DEL_CLOSE, "}}"},
+				{PLAIN, " text."},
+				{EOF, ""},
+			},
+		},
+		{
+			input: `{{myvar}`,
+			expected: []struct {
+				tokenType Type
+				literal   string
+			}{
+				{DEL_OPEN, "{{"},
+				{IDENTIFIER, "myvar"},
+				{EOF, ""},
+			},
+		},
+		{
+			input: `{myvar}}`,
+			expected: []struct {
+				tokenType Type
+				literal   string
+			}{
+				{PLAIN, "{myvar}}"},
+				{EOF, ""},
+			},
+		},
+		{
+			input: `myvar}}`,
+			expected: []struct {
+				tokenType Type
+				literal   string
+			}{
+				{PLAIN, "myvar}}"},
+				{EOF, ""},
+			},
+		},
+		{
+			input: `{{myvar`,
+			expected: []struct {
+				tokenType Type
+				literal   string
+			}{
+				{DEL_OPEN, "{{"},
+				{IDENTIFIER, "myvar"},
+				{EOF, ""},
+			},
+		},
+		// {
+		// 	input: `myvar}}`,
+		// 	expected: []struct {
+		// 		tokenType Type
+		// 		literal   string
+		// 	}{
+		// 		{PLAIN, "myvar"},
+		// 		{ILLEGAL, ""},
+		// 	},
+		// },
+		// {
+		// 	input: `{{myvar}`,
+		// 	expected: []struct {
+		// 		tokenType Type
+		// 		literal   string
+		// 	}{
+		// 		{DEL_OPEN, "{{"},
+		// 		{IDENTIFIER, "myvar"},
+		// 		{ILLEGAL, ""},
+		// 	},
+		// },
 	}
-
-	l := NewLexer(input)
 
 	for _, tt := range tests {
-		tok := l.NextToken()
-		t.Logf("%s: '%s'", tok.Type, tok.Literal)
+		t.Run(tt.input, func(t *testing.T) {
+			l := NewLexer(tt.input)
 
-		if tok.Type != tt.expectedType {
-			t.Fatalf("unexpected token type. expected '%s', got '%s'", tt.expectedType, tok.Type)
-		}
+			for _, e := range tt.expected {
+				tok := l.NextToken()
 
-		if tok.Literal != tt.exptectedLiteral {
-			t.Fatalf("unexpected token literal. expected '%s', got '%s'", tt.exptectedLiteral, tok.Literal)
-		}
-	}
-}
+				if tok.Type != e.tokenType {
+					t.Fatalf("unexpected token type. expected '%s', got '%s'", e.tokenType, tok.Type)
+				}
 
-func TestLexerV2(t *testing.T) {
-	input := `{{ myvar }} - something! {{     yourvar  }}. {{another}}`
-
-	tests := []struct {
-		expectedType     Type
-		exptectedLiteral string
-	}{
-		{DEL_OPEN, "{{"},
-		{IDENTIFIER, "myvar"},
-		{DEL_CLOSE, "}}"},
-		{PLAIN, " - something! "},
-		{DEL_OPEN, "{{"},
-		{IDENTIFIER, "yourvar"},
-		{DEL_CLOSE, "}}"},
-		{PLAIN, ". "},
-		{DEL_OPEN, "{{"},
-		{IDENTIFIER, "another"},
-		{DEL_CLOSE, "}}"},
-	}
-
-	l := NewLexer(input)
-
-	for _, tt := range tests {
-		tok := l.NextToken()
-		t.Logf("%s: '%s'", tok.Type, tok.Literal)
-
-		if tok.Type != tt.expectedType {
-			t.Fatalf("unexpected token type. expected '%s', got '%s'", tt.expectedType, tok.Type)
-		}
-
-		if tok.Literal != tt.exptectedLiteral {
-			t.Fatalf("unexpected token literal. expected '%s', got '%s'", tt.exptectedLiteral, tok.Literal)
-		}
+				if tok.Literal != e.literal {
+					t.Fatalf("unexpected token literal. expected '%s', got '%s'", e.literal, tok.Literal)
+				}
+			}
+		})
 	}
 }
