@@ -79,7 +79,7 @@ func TestLexerValidInputs(t *testing.T) {
 				literal   string
 			}{
 				{DEL_OPEN, "{{"},
-				{IDENTIFIER, "myvar"},
+				{ILLEGAL, "invalid closing delimiter."},
 				{EOF, ""},
 			},
 		},
@@ -89,7 +89,7 @@ func TestLexerValidInputs(t *testing.T) {
 				tokenType Type
 				literal   string
 			}{
-				{PLAIN, "{myvar}}"},
+				{ILLEGAL, "unexpected closing delimiter."},
 				{EOF, ""},
 			},
 		},
@@ -99,7 +99,7 @@ func TestLexerValidInputs(t *testing.T) {
 				tokenType Type
 				literal   string
 			}{
-				{PLAIN, "myvar}}"},
+				{ILLEGAL, "unexpected closing delimiter."},
 				{EOF, ""},
 			},
 		},
@@ -110,31 +110,54 @@ func TestLexerValidInputs(t *testing.T) {
 				literal   string
 			}{
 				{DEL_OPEN, "{{"},
-				{IDENTIFIER, "myvar"},
+				{ILLEGAL, "missing closing delimiter."},
 				{EOF, ""},
 			},
 		},
-		// {
-		// 	input: `myvar}}`,
-		// 	expected: []struct {
-		// 		tokenType Type
-		// 		literal   string
-		// 	}{
-		// 		{PLAIN, "myvar"},
-		// 		{ILLEGAL, ""},
-		// 	},
-		// },
-		// {
-		// 	input: `{{myvar}`,
-		// 	expected: []struct {
-		// 		tokenType Type
-		// 		literal   string
-		// 	}{
-		// 		{DEL_OPEN, "{{"},
-		// 		{IDENTIFIER, "myvar"},
-		// 		{ILLEGAL, ""},
-		// 	},
-		// },
+		{
+			input: `myvar}}`,
+			expected: []struct {
+				tokenType Type
+				literal   string
+			}{
+				{ILLEGAL, "unexpected closing delimiter."},
+				{EOF, ""},
+			},
+		},
+		{
+			input: `text {{myvar text.`,
+			expected: []struct {
+				tokenType Type
+				literal   string
+			}{
+				{PLAIN, "text "},
+				{DEL_OPEN, "{{"},
+				{ILLEGAL, "missing closing delimiter."},
+				{EOF, ""},
+			},
+		},
+		{
+			input: `text {{ myvar} } text.`,
+			expected: []struct {
+				tokenType Type
+				literal   string
+			}{
+				{PLAIN, "text "},
+				{DEL_OPEN, "{{"},
+				{ILLEGAL, "invalid closing delimiter."},
+				{EOF, ""},
+			},
+		},
+		{
+			input: `text { { myvar} } text.`,
+			expected: []struct {
+				tokenType Type
+				literal   string
+			}{
+				{PLAIN, "text { { myvar} } text."},
+				{EOF, ""},
+			},
+		},
 	}
 
 	for _, tt := range tests {

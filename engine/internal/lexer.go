@@ -59,8 +59,21 @@ func (l *Lexer) NextToken() Token {
 
 	if l.semantic {
 		l.skipWhitespace()
+
 		token := l.lexIdentifier()
+
 		l.skipWhitespace()
+
+		if l.current != '}' {
+			l.illegal = true
+			return Token{Type: ILLEGAL, Literal: "missing closing delimiter."}
+		}
+
+		if l.current == '}' && l.next != '}' {
+			l.illegal = true
+			return Token{Type: ILLEGAL, Literal: "invalid closing delimiter."}
+		}
+
 		return token
 	}
 
@@ -98,7 +111,6 @@ func (l *Lexer) skipWhitespace() {
 }
 
 func (l *Lexer) lexIdentifier() Token {
-
 	for {
 		if l.eof {
 			break
@@ -110,10 +122,6 @@ func (l *Lexer) lexIdentifier() Token {
 
 		l.lex()
 	}
-
-	// for !l.eof && l.current != ' ' && l.current != '}' {
-	// 	l.lex()
-	// }
 
 	literal := l.template[l.tpos:l.cpos]
 	l.tpos = l.cpos
@@ -129,6 +137,11 @@ func (l *Lexer) lexPlain() Token {
 
 		if l.current == '{' && l.next == '{' {
 			break
+		}
+
+		if l.current == '}' && l.next == '}' {
+			l.illegal = true
+			return Token{Type: ILLEGAL, Literal: "unexpected closing delimiter."}
 		}
 
 		l.lex()
