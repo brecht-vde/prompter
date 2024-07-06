@@ -1,4 +1,4 @@
-package engine
+package internal
 
 import "strings"
 
@@ -10,7 +10,7 @@ func (t *Template) String() string {
 	b := &strings.Builder{}
 
 	for _, s := range t.s {
-		b.WriteString(s.String())
+		b.WriteString(s.ValueString())
 	}
 
 	return b.String()
@@ -19,11 +19,12 @@ func (t *Template) String() string {
 type Node interface {
 	TokenLiteral() string
 	String() string
+	ValueString() string
 }
 
 type Statement interface {
 	Node
-	statementNode()
+	expressionNode()
 }
 
 type PlainText struct {
@@ -34,20 +35,45 @@ type PlainText struct {
 func (p *PlainText) TokenLiteral() string {
 	return p.Token.Literal
 }
-func (p *PlainText) statementNode() {}
+func (p *PlainText) expressionNode() {}
 func (p *PlainText) String() string {
+	return p.Value
+}
+func (p *PlainText) ValueString() string {
 	return p.Value
 }
 
 type Variable struct {
 	Token      Token
 	Identifier string
+	Value      string
 }
 
 func (v *Variable) TokenLiteral() string {
 	return v.Token.Literal
 }
-func (v *Variable) statementNode() {}
+func (v *Variable) expressionNode() {}
 func (v *Variable) String() string {
 	return v.Identifier
+}
+func (v *Variable) ValueString() string {
+	return v.Value
+}
+
+type Join struct {
+	Token      Token
+	Identifier string
+	Separator  string
+	Value      string
+}
+
+func (j *Join) TokenLiteral() string {
+	return j.Token.Literal
+}
+func (j *Join) expressionNode() {}
+func (j *Join) String() string {
+	return j.Identifier + ": " + j.Separator
+}
+func (j *Join) ValueString() string {
+	return j.Value
 }
